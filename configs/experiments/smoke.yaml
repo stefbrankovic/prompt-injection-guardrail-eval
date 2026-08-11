@@ -1,0 +1,7 @@
+# Najmanji mogući prolaz kroz ceo pipeline. Mora da radi za < 60 sekundi.
+# Ovo je prva stvar koja se piše i poslednja koja se briše.
+defaults: default.yaml
+eval:
+  n_samples: 4
+model:
+  max_new_tokens: 16

@@ -1,0 +1,22 @@
+# CyrEvade glavni eksperiment. Nasleđuje default, dodaje T1-specifično.
+defaults: default.yaml
+
+detector:
+  name: meta-llama/Llama-Prompt-Guard-2-86M   # gated, prihvatiti licencu D1
+  threshold: 0.5                               # prag evazije (kalibrisati D2)
+
+attack:
+  strict_homoglyphs: true    # true = samo pouzdano-identični parovi
+  search: greedy             # greedy | beam
+  beam_width: 5              # koristi se samo ako search=beam
+  max_budget: null           # null = bez gornje granice
+
+agent:
+  model: Qwen/Qwen2.5-7B-Instruct   # dobar srpski; alt: Llama-3.1-8B-Instruct
+  suites: [workspace, banking]      # AgentDojo task suites (podskup za brzinu)
+
+languages: [en, sr_latn, sr_cyrl]   # varijante koje evaluiramo
+
+defense:
+  probe_layer: null          # null = pretraži sve slojeve; broj = fiksni sloj
+  train_lang: en             # probe se trenira SAMO na engleskom

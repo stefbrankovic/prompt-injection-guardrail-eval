@@ -1,0 +1,34 @@
+name: psiml
+channels: [conda-forge]
+dependencies:
+  - python=3.11
+  - pip
+  - pip:
+      # jezgro
+      - torch
+      - transformers
+      - accelerate
+      - datasets
+      - numpy
+      - scipy
+      - scikit-learn
+      - pandas
+      # konfiguracija i alati
+      - pyyaml
+      - tqdm
+      - rich
+      # grafici
+      - matplotlib
+      - seaborn
+      # dev
+      - pytest
+      - ruff
+      - nbstripout
+      - ipykernel
+      # --- T1 CyrEvade ---
+      - agentdojo          # ethz-spylab, prompt-injection agent benchmark
+      - huggingface_hub    # provera pristupa gated modelima (check_access.py)
+      - sentencepiece      # tokenizer za DeBERTa detektore
+      - protobuf           # isto
+      # - vllm             # serving agent modela; instalirati na GPU masini
+      # nnsight ili torch hookovi za activation deltas (TaskTracker metod)

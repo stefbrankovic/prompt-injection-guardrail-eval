@@ -1,0 +1,23 @@
+# Osnovna konfiguracija. Eksperimenti nasleđuju i pregaze ono što im treba.
+seed: 1337
+device: cuda
+dtype: bfloat16
+
+paths:
+  data: ../data            # relativno na koren repoa
+  results_raw: results/raw
+  results_tables: results/tables
+  results_figures: results/figures
+
+model:
+  name: null               # npr. Qwen/Qwen2.5-7B-Instruct
+  max_new_tokens: 512
+  temperature: 0.0
+
+eval:
+  n_samples: null          # null = ceo split
+  batch_size: 8
+
+logging:
+  level: INFO
+  run_name: null           # null -> auto: {date}_{git_sha}_{config_name}

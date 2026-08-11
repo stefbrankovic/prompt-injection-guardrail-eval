@@ -1,0 +1,41 @@
+# --- Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+.pytest_cache/
+.ruff_cache/
+
+# --- Notebooks (output se skida preko nbstripout, checkpointi ne idu)
+.ipynb_checkpoints/
+
+# --- Podaci i artefakti (NIKAD u git; sve živi u ../data/)
+data/
+*.pt
+*.pth
+*.safetensors
+*.ckpt
+*.npz
+*.parquet
+*.jsonl.gz
+
+# --- Sirovi rezultati eksperimenata (velika, regenerabilna)
+results/raw/**
+!results/raw/.gitkeep
+wandb/
+mlruns/
+outputs/
+logs/
+*.log
+
+# --- Tajne
+.env
+*.key
+secrets.*
+
+# --- OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
