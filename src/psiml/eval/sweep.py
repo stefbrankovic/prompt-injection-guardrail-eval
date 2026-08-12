@@ -135,6 +135,7 @@ def search_attacks(
                 "pismo": s.script,
                 "varijanta": f"cyrevade_{algo}",
                 "tekst": res.perturbed,
+                "tekst_original": res.original,
                 "budget": res.budget,
                 "pg2_score": round(float(res.final_score), 6),
                 "evaded": bool(res.evaded),

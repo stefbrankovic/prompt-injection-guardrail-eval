@@ -9,6 +9,8 @@ Fig. 1  TPR/FPR po varijanti i detektoru — "koliko detektor vidi napad".
 Fig. 2  Kriva evazije: udeo probijenih napada u zavisnosti od budzeta zamena.
         Ovo je prvi grafik iz MASTERPLAN-a (gate za D2).
 Fig. 3  Pad score-a po napadu: pre vs posle pretrage, sa pragom.
+Fig. 4  Cin II: porast fertility-ja vs pad score-a (samo ako je pokrenut
+        `python -m psiml.analysis.fertility`).
 
 Pokretanje:
     python -m psiml.viz.make_figures                       # svi run-ovi
@@ -114,6 +116,54 @@ def fig_score_drop(summary: dict, attacks: list[dict], out: Path) -> Path | None
     return path
 
 
+def fig_fertility(run: Path, out: Path) -> Path | None:
+    """Cin II: da li je pad score-a objasnjen fragmentacijom tokena."""
+    fpath = run / "fertility.json"
+    if not fpath.exists():
+        return None
+    res = json.loads(fpath.read_text(encoding="utf-8"))
+    pairs = res.get("_pairs", [])
+    cyr = res.get("_cyrevade", [])
+    if not pairs and not cyr:
+        return None
+
+    fig, ax = plt.subplots(figsize=(5.2, 3.6))
+    if pairs:
+        xs = [p["d_fertility"] for p in pairs]
+        ys = [p["d_score"] for p in pairs]
+        ax.scatter(xs, ys, s=12, alpha=0.5, label="fiksne varijante")
+    if cyr:
+        ax.scatter([a["fertility_posle"] - a["fertility_pre"] for a in cyr],
+                   [a["pg2_score"] - a["orig_score"] for a in cyr],
+                   s=14, alpha=0.7, marker="^", label="CyrEvade pretraga")
+    # fitovana linija kroz sve tacke (najmanji kvadrati, bez numpy-ja)
+    xs = ([p["d_fertility"] for p in pairs]
+          + [a["fertility_posle"] - a["fertility_pre"] for a in cyr])
+    ys = ([p["d_score"] for p in pairs]
+          + [a["pg2_score"] - a["orig_score"] for a in cyr])
+    if len(xs) > 2:
+        mx = sum(xs) / len(xs)
+        my = sum(ys) / len(ys)
+        den = sum((x - mx) ** 2 for x in xs)
+        if den:
+            k = sum((x - mx) * (y - my) for x, y in zip(xs, ys)) / den
+            x0, x1 = min(xs), max(xs)
+            ax.plot([x0, x1], [my + k * (x0 - mx), my + k * (x1 - mx)],
+                    color="k", lw=1, ls="--")
+    r = res.get("korelacija_delta", {}).get("pearson")
+    ax.set_xlabel("porast fertility-ja (tokena po reci)")
+    ax.set_ylabel("promena score-a detektora")
+    ax.axhline(0, color="gray", lw=0.6)
+    ax.set_title("Mehanizam: fragmentacija vs pad detekcije"
+                 + (f"  (r={r:+.2f})" if r is not None else ""))
+    ax.legend(fontsize=7)
+    fig.tight_layout()
+    path = out / "fig4_fertility.png"
+    fig.savefig(path, bbox_inches="tight")
+    plt.close(fig)
+    return path
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description="Regenerisi figure iz results/raw")
     ap.add_argument("--run", type=Path, default=None, help="jedan run; podrazumevano svi")
@@ -136,6 +186,7 @@ def main() -> int:
             fig_tpr_fpr(summary, out),
             fig_evasion_curve(summary, out),
             fig_score_drop(summary, attacks, out),
+            fig_fertility(run, out),
         ]
         for p in made:
             if p:
