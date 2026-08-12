@@ -1,9 +1,8 @@
 #!/usr/bin/env bash
 # =============================================================================
-# Setup u jednoj komandi.  bash scripts/setup.sh
+# KOMANDA ZA SETUP:  bash scripts/setup.sh
 #
 # Pravi conda env, instalira paket, pokrece testove i proveru pristupa.
-# Idempotentno — bezbedno pokrenuti vise puta.
 # =============================================================================
 set -euo pipefail
 
@@ -22,7 +21,7 @@ fi
 eval "$(conda shell.bash hook)"
 conda activate "$ENV_NAME"
 
-echo "==> 2/5 instaliram paket (editable)"
+echo "==> 2/5 instaliram paket (editable)"sp
 pip install -e . -q
 
 echo "==> 3/5 nbstripout (sprecava merge konflikte u notebook-ovima)"

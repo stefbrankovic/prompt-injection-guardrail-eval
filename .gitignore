@@ -39,3 +39,6 @@ secrets.*
 Thumbs.db
 .vscode/
 .idea/
+
+# --- node js - repomix
+repomix-output.*
