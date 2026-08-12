@@ -1,0 +1,20 @@
+# D1 baseline: lestvica detektora na ENGLESKOM AgentDojo skupu.
+# Pitanje na koje ovaj config odgovara: da li detektori uopste rade tamo gde bi
+# trebalo? Ako ne rade na engleskom, nema sta da se probija ni na srpskom.
+# Skup se pravi sa: python scripts/dump_agentdojo_injections.py
+defaults: default.yaml
+
+device: cpu          # detektori su mali (86M); GPU nije uslov za Cin I
+
+sweep:
+  detectors: [protectai_v2, deepset, promptguard2_22m, promptguard2_86m]
+  data:
+    - data/injections/agentdojo_en.jsonl
+    - data/injections/agentdojo_benign_en.jsonl
+  variants: [orig]   # baseline = bez ijedne perturbacije
+  threshold: 0.5
+  search: false
+  limit: null
+
+eval:
+  batch_size: 16
