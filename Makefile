@@ -55,3 +55,10 @@ sync:
 clean:
 	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
 	rm -rf .pytest_cache .ruff_cache
+
+srlatn:
+	python scripts/make_sr_latn.py
+
+fertility:
+	python -m psiml.analysis.fertility --run results/raw/cyrevade
+	python -m psiml.viz.make_figures --run results/raw/cyrevade
