@@ -27,29 +27,33 @@ from typing import Callable
 from psiml.attack.homoglyphs import apply_substitution, substitutable_positions
 
 ScoreFn = Callable[[str], float]
+BatchScoreFn = Callable[[list[str]], list[float]]
 
 
 @dataclass
 class SearchResult:
-    """Rezultat jedne pretrage nad jednim injection stringom."""
-
     original: str
     perturbed: str
-    positions: list[int]          # zamenjene pozicije, redosledom dodavanja
-    budget: int                   # = len(positions)
-    orig_score: float             # detektor score pre napada
-    final_score: float            # detektor score posle napada
-    evaded: bool                  # da li je final_score < prag
+    positions: list[int]
+    budget: int
+    orig_score: float
+    final_score: float
+    evaded: bool
     trace: list[tuple[int, float]] = field(default_factory=list)
-    # trace: (pozicija_dodata, score_posle) — za crtanje krive evazije
 
 
-def _score_after_adding(
-    text: str, chosen: set[int], candidate: int, score_fn: ScoreFn, strict: bool
-) -> float:
-    """Score detektora ako se na vec izabrane pozicije doda jos `candidate`."""
-    trial = apply_substitution(text, chosen | {candidate}, strict=strict)
-    return score_fn(trial)
+def _scores_after_adding(
+    text: str,
+    chosen: set[int],
+    candidates: list[int],
+    score_fn: ScoreFn,
+    strict: bool,
+    score_many_fn: BatchScoreFn | None = None,
+) -> list[float]:
+    trials = [apply_substitution(text, chosen | {c}, strict=strict) for c in candidates]
+    if score_many_fn is not None:
+        return list(score_many_fn(trials))
+    return [score_fn(t) for t in trials]
 
 
 def greedy_search(
@@ -58,57 +62,31 @@ def greedy_search(
     threshold: float = 0.5,
     max_budget: int | None = None,
     strict: bool = True,
+    score_many_fn: BatchScoreFn | None = None,
 ) -> SearchResult:
-    """Greedy pretraga: u svakom koraku dodaj poziciju koja NAJVISE spusta score.
-
-    Ovo je glavni algoritam. Slozenost je O(k * n) poziva detektora, gde je
-    n broj zamenljivih pozicija a k finalni budzet — jer u svakom od k koraka
-    probamo svaku preostalu poziciju. Za injection od ~70 znakova i ~20
-    zamenljivih pozicija to je par stotina poziva detektora, dakle < 1s.
-
-    Args:
-        text: originalni injection string (latinica).
-        score_fn: black-box detektor, string -> [0,1].
-        threshold: prag evazije; kad score padne ispod, pretraga staje.
-        max_budget: gornja granica broja zamena; None = svi zamenljivi karakteri.
-        strict: koji homoglif skup koristiti.
-
-    Returns:
-        SearchResult sa putanjom (trace) pogodnom za crtanje krive evazije.
-    """
     positions_all = substitutable_positions(text, strict=strict)
     if max_budget is None:
         max_budget = len(positions_all)
 
-    orig_score = score_fn(text)
+    orig_score = score_many_fn([text])[0] if score_many_fn is not None else score_fn(text)
     chosen: set[int] = set()
     order: list[int] = []
     trace: list[tuple[int, float]] = []
     current_score = orig_score
 
     remaining = set(positions_all)
-    # `stalls` broji uzastopne korake bez STROGOG poboljsanja. Dozvoljavamo
-    # ravne (plato) korake jer detektor cesto reaguje tek kad se pokvari CELA
-    # kljucna rec, ne prvo slovo — pa prvi korak izgleda beskoristan a nije.
-    # Prekidamo tek kad ni posle citavog "platoa" nema napretka.
-    max_stalls = len(remaining)  # najgori slucaj: probaj sve jednom
+    max_stalls = len(remaining)
     stalls = 0
     while remaining and len(chosen) < max_budget and current_score >= threshold:
-        # Nadji poziciju cije dodavanje daje najnizi score (dozvoljavamo <=).
-        best_pos = None
-        best_score = float("inf")
-        for cand in remaining:
-            s = _score_after_adding(text, chosen, cand, score_fn, strict)
-            if s < best_score:
-                best_score = s
-                best_pos = cand
-        if best_pos is None:
+        cands = sorted(remaining)
+        scores = _scores_after_adding(text, chosen, cands, score_fn, strict, score_many_fn)
+        if not scores:
             break
-        # Da li je ovo bilo STROGO poboljsanje?
+        best_score, best_pos = min(zip(scores, cands))
         if best_score >= current_score:
             stalls += 1
             if stalls > max_stalls:
-                break  # plato se ne zavrsava, odustani
+                break
         else:
             stalls = 0
         chosen.add(best_pos)
@@ -137,41 +115,37 @@ def beam_search(
     beam_width: int = 5,
     max_budget: int | None = None,
     strict: bool = True,
+    score_many_fn: BatchScoreFn | None = None,
 ) -> SearchResult:
-    """Beam varijanta: cuva `beam_width` najboljih delimicnih resenja.
-
-    Greedy moze da zaglavi u lokalnom minimumu (jedna zamena izgleda lose sama
-    ali je odlicna u kombinaciji sa drugom). Beam to delimicno resava po ceni
-    beam_width puta vise poziva detektora. Za projekat je greedy verovatno
-    dovoljan; beam je tu za slucaj da greedy pokaze zaglavljivanje.
-
-    Vraca najbolji list iz beam-a (najnizi score, pa najmanji budzet).
-    """
     positions_all = substitutable_positions(text, strict=strict)
     if max_budget is None:
         max_budget = len(positions_all)
-    orig_score = score_fn(text)
+    orig_score = score_many_fn([text])[0] if score_many_fn is not None else score_fn(text)
 
-    # Svaki beam element: (chosen_set, order_list, score, trace)
-    Beam = tuple[frozenset[int], tuple[int, ...], float, tuple[tuple[int, float], ...]]
+    Beam = tuple[frozenset[int], tuple[int, ...], float, tuple]
     beams: list[Beam] = [(frozenset(), (), orig_score, ())]
     best_evaded: Beam | None = None
 
     for _ in range(max_budget):
-        candidates: list[Beam] = []
+        expansions = []
         for chosen, order, _score, trace in beams:
-            remaining = set(positions_all) - set(chosen)
-            for cand in remaining:
+            for cand in sorted(set(positions_all) - set(chosen)):
                 new_chosen = frozenset(chosen | {cand})
-                s = score_fn(apply_substitution(text, set(new_chosen), strict=strict))
-                new_trace = trace + ((cand, s),)
-                candidates.append((new_chosen, order + (cand,), s, new_trace))
-        if not candidates:
+                expansions.append(
+                    (new_chosen, order + (cand,), trace,
+                     apply_substitution(text, set(new_chosen), strict=strict))
+                )
+        if not expansions:
             break
-        # Zadrzi beam_width najboljih po score-u.
+        texts = [e[3] for e in expansions]
+        scores = list(score_many_fn(texts)) if score_many_fn is not None else [
+            score_fn(t) for t in texts
+        ]
+        candidates = []
+        for (new_chosen, new_order, trace, _t), s in zip(expansions, scores):
+            candidates.append((new_chosen, new_order, s, trace + ((new_order[-1], s),)))
         candidates.sort(key=lambda b: (b[2], len(b[0])))
         beams = candidates[:beam_width]
-        # Da li je neki od njih presao prag?
         for b in beams:
             if b[2] < threshold:
                 if best_evaded is None or len(b[0]) < len(best_evaded[0]):

@@ -144,8 +144,26 @@ class HFDetector:
         return self._malicious_prob(scores)
 
 
-def get_detector(key: str, device: str = "cpu") -> HFDetector:
-    """Fabrika po kljucu iz REGISTRY."""
+class MockDetector:
+    """Lazni detektor za razvoj bez GPU-a. NIKAD u rezultate."""
+    TRIGGERS = ("ignore","disregard","previous instruction","override",
+                "send","forward","transfer","api key","password",
+                "important message","before you can solve")
+    def __init__(self, name: str = "mock") -> None:
+        self.name = name
+        self.spec = type('S', (), {'key':'mock','hf_id':'','task':'','languages':'','gated':False,'note':''})()
+    def score(self, text: str) -> float:
+        low = text.lower()
+        hits = sum(1 for t in self.TRIGGERS if t in low)
+        return 0.02 if hits == 0 else min(0.99, 0.45 + 0.18 * hits)
+    def score_many(self, texts: list[str]) -> list[float]:
+        return [self.score(t) for t in texts]
+
+
+def get_detector(key: str, device: str = "cpu", batch_size: int = 16):
+    """Fabrika po kljucu iz REGISTRY. `mock` ne dira mrezu ni GPU."""
+    if key == "mock":
+        return MockDetector()
     if key not in REGISTRY:
         raise KeyError(f"Nepoznat detektor '{key}'. Dostupni: {list(REGISTRY)}")
     return HFDetector(REGISTRY[key], device=device)
