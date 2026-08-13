@@ -1,0 +1,15 @@
+defaults: default.yaml
+device: cpu
+
+sweep:
+  detectors: [protectai_v2, deepset, promptguard2_22m, promptguard2_86m]
+  data:
+    - data/injections/agentdojo_en.jsonl
+    - data/injections/agentdojo_benign_en.jsonl
+  variants: [orig, homo25, homo50, homo100]
+  threshold: 0.5
+  search: false
+  limit: null
+
+eval:
+  batch_size: 16

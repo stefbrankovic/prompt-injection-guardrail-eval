@@ -42,14 +42,14 @@ def _load(run: Path) -> tuple[dict, list[dict]]:
 
 
 def fig_tpr_fpr(summary: dict, out: Path) -> Path | None:
-    """Grupisani stubici: TPR pun, FPR sraviran preko — po varijanti."""
+    """Grupisani stubici: TPR full, FPR srafiran - po varijanti."""
     dets = list(summary["detectors"])
     variants = summary["variants"]
     if not dets:
         return None
     fig, axes = plt.subplots(1, 2, figsize=(9, 3.4), sharey=True)
     width = 0.8 / max(1, len(dets))
-    for ax, metric, title in zip(axes, ("tpr", "fpr"), ("TPR (napadi)", "FPR (bezopasni)")):
+    for ax, metric, title in zip(axes, ("tpr", "fpr"), ("TPR (attacks)", "FPR (benign)")):
         for i, det in enumerate(dets):
             vals = [summary["detectors"][det]["variants"][v][metric] for v in variants]
             ax.bar([x + i * width for x in range(len(variants))], vals, width, label=det)
@@ -57,9 +57,9 @@ def fig_tpr_fpr(summary: dict, out: Path) -> Path | None:
         ax.set_xticklabels(variants, rotation=20)
         ax.set_ylim(0, 1.05)
         ax.set_title(title)
-    axes[0].set_ylabel(f"udeo (prag {summary['threshold']})")
+    axes[0].set_ylabel(f"Detection Rate (treshold {summary['threshold']})")
     axes[1].legend(fontsize=7, loc="upper right")
-    fig.suptitle("Detekcija po varijanti napada", y=1.02)
+    fig.suptitle("Detection Rate by Attack Variant", y=1.02)
     fig.tight_layout()
     path = out / "fig1_tpr_fpr_po_varijanti.png"
     fig.savefig(path, bbox_inches="tight")
@@ -80,10 +80,10 @@ def fig_evasion_curve(summary: dict, out: Path) -> Path | None:
     for det, curve in curves.items():
         ax.plot([p["budget"] for p in curve], [p["evasion_rate"] for p in curve],
                 marker="o", ms=3, label=det)
-    ax.set_xlabel("budzet: broj zamenjenih karaktera")
-    ax.set_ylabel("udeo probijenih napada")
+    ax.set_xlabel("Perturbation Budget (Replaced Characters)")
+    ax.set_ylabel("ASR")   # attack success rate
     ax.set_ylim(-0.02, 1.02)
-    ax.set_title("Kriva evazije (CyrEvade, greedy)")
+    ax.set_title("Evasion Curve (greedy)")
     ax.legend(fontsize=7)
     fig.tight_layout()
     path = out / "fig2_kriva_evazije.png"
@@ -103,12 +103,12 @@ def fig_score_drop(summary: dict, attacks: list[dict], out: Path) -> Path | None
         ax.plot([0, 1], [r["orig_score"], r["pg2_score"]],
                 color="tab:red" if r["evaded"] else "tab:gray", alpha=0.5, lw=0.8)
     ax.axhline(summary["threshold"], ls="--", color="k", lw=1)
-    ax.text(1.01, summary["threshold"], "prag", va="center", fontsize=7)
+    ax.text(1.01, summary["threshold"], "threshold", va="center", fontsize=7)
     ax.set_xticks([0, 1])
-    ax.set_xticklabels(["original", "posle CyrEvade"])
-    ax.set_ylabel("score detektora")
+    ax.set_xticklabels(["original", "after"])
+    ax.set_ylabel("Detector Score")
     ax.set_ylim(-0.02, 1.02)
-    ax.set_title("Pad score-a po napadu (crveno = probijeno)")
+    ax.set_title("Detector Score Drop per Attack (Red = Evaded)")
     fig.tight_layout()
     path = out / "fig3_pad_scorea.png"
     fig.savefig(path, bbox_inches="tight")
@@ -151,10 +151,10 @@ def fig_fertility(run: Path, out: Path) -> Path | None:
             ax.plot([x0, x1], [my + k * (x0 - mx), my + k * (x1 - mx)],
                     color="k", lw=1, ls="--")
     r = res.get("korelacija_delta", {}).get("pearson")
-    ax.set_xlabel("porast fertility-ja (tokena po reci)")
-    ax.set_ylabel("promena score-a detektora")
+    ax.set_xlabel("Fertility Increase (Tokens per Word)")
+    ax.set_ylabel("Detector Score Change ($\Delta$ Score)")
     ax.axhline(0, color="gray", lw=0.6)
-    ax.set_title("Mehanizam: fragmentacija vs pad detekcije"
+    ax.set_title("Mechanism: Token Fertility Increase vs. Detection Drop"
                  + (f"  (r={r:+.2f})" if r is not None else ""))
     ax.legend(fontsize=7)
     fig.tight_layout()

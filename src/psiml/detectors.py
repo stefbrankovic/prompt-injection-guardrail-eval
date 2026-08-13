@@ -101,11 +101,13 @@ class HFDetector:
     inspektovati bez skidanja gigabajta.
     """
 
-    def __init__(self, spec: DetectorSpec, device: str = "cpu") -> None:
+    def __init__(self, spec: DetectorSpec, device: str = "cpu", batch_size: int = 16) -> None:
         self.spec = spec
         self.name = spec.key
         self.device = device
+        self.batch_size = batch_size
         self._pipe = None
+        self._cache: dict[str, float] = {}
 
     def _ensure_loaded(self) -> None:
         if self._pipe is not None:
@@ -137,11 +139,19 @@ class HFDetector:
         return malicious
 
     def score(self, text: str) -> float:
-        self._ensure_loaded()
-        out = self._pipe(text)
-        # pipeline sa top_k=None vraca [[{...}, {...}]] za jedan ulaz
-        scores = out[0] if isinstance(out[0], list) else out
-        return self._malicious_prob(scores)
+        return self.score_many([text])[0]
+
+    def score_many(self, texts: list[str]) -> list[float]:
+        missing = [t for t in dict.fromkeys(texts) if t not in self._cache]
+        if missing:
+            self._ensure_loaded()
+            for i in range(0, len(missing), self.batch_size):
+                chunk = missing[i: i + self.batch_size]
+                out = self._pipe(chunk, batch_size=len(chunk))
+                for txt, entry in zip(chunk, out):
+                    sc = entry if isinstance(entry, list) else [entry]
+                    self._cache[txt] = self._malicious_prob(sc)
+        return [self._cache[t] for t in texts]
 
 
 class MockDetector:
