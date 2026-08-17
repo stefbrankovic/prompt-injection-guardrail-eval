@@ -8,13 +8,29 @@ long document.
 
 PSIML 11 (Practical Seminar in Machine Learning), August 2026.
 
-Authors: 
-- **Stefan Branković** [https://github.com/stefbrankovic]
-- **Katarina Bojović** [https://github.com/katarinnaaX]. 
+**Authors:** 
 
-Mentors: 
-- **Kristina Nikolić** (ETH AI SPY Lab)
-- **Stefan Mojsilović** (Everseen).
+- [**Stefan Branković**](https://github.com/stefbrankovic)
+- [**Katarina Bojović**](https://github.com/katarinnaaX)
+
+**Mentors:** 
+
+- **Kristina Nikolić** (ETH AI Center, SPY Lab)
+- **Stefan Mojsilović** (Everseen)
+
+---
+
+## Quickstart
+
+Every number in this README is in `results/tables/`, and every analysis step runs from cached
+scores without calling a model:
+
+```bash
+conda env create -f environment.yml && conda activate psiml
+export PYTHONPATH=src
+python scripts/f2_analyze.py t1      # reproduces the analysis behind section 5
+pytest -q                            # unit tests for transliteration and fertility
+```
 
 ---
 
@@ -43,7 +59,7 @@ Mentors:
 | # | Finding | Evidence |
 |---|---|---|
 | 1 | A wrapper template containing **no instruction at all** scores like a real attack | 0.9989 on deepset, 0.9955 on ProtectAI v2 |
-| 2 | The wrapper drives the score more than the goal inside it | Same 35 attack goals: TPR 0.94 wrapped, 0.03 raw |
+| 2 | The wrapper drives the score more than the goal inside it | Same 35 attack goals: TPR 0.94 wrapped, 0.03 raw (Prompt Guard 2 86M) |
 | 3 | Thresholds do not transfer across language | 70.7% of benign Serbian in Latin script and 100% in Cyrillic blocked at a threshold costing 5% FPR on English (deepset) |
 | 4 | The 512-token truncation boundary is predictable from the tokenizer and confirmed behaviourally | Predicted 1982 chars (Prompt Guard 2) and 2226 chars (deepset); measured score is identical to six decimals past that offset |
 | 5 | The same blind spot is twice as close to the top in Serbian Cyrillic | 512 tokens hold 1025 Cyrillic chars vs 2226 English chars |
@@ -75,18 +91,22 @@ hold turned out to be more informative than a successful evasion would have been
 ## 3. Background and definitions
 
 **Token and context window.** Models read tokens, not characters, roughly 3 to 4 characters
-of English per token. Every model has a maximum input length. All four detectors were evaluated with a **512-token maximum input length**. Longer inputs are truncated at inference: no error is raised, and the returned score corresponds only to the retained prefix. We verified this behavior from the tokenizer/model configuration and reproduced it in our scoring wrapper.
+of English per token. All four detectors here have a 512-token input limit. Longer inputs are
+truncated at inference: no error is raised, and the returned score reflects only the retained
+prefix while looking like a score for the whole document. We verified this from the tokenizer
+and model configuration and reproduced it in our scoring wrapper. Section 7 shows that this is
+not an implementation detail but the largest exploitable property we found.
 
 **Threshold, TPR, FPR.** A text is flagged when `score >= thr`. FPR is the fraction of
 **benign** texts flagged, which is the cost to users. TPR is the fraction of **attacks**
 flagged, which is the benefit. Lowering the threshold buys TPR at the price of FPR.
 
-**Why we never compare at 0.5.** Raw scores are not comparable across models. deepset's
-entire useful decision range lies between 0.99845 and 0.99899, a span of about 5e-4, while
-Prompt Guard 2 operates around 0.006. Comparing two models at 0.5 compares two arbitrary
-points on incomparable scales. Every number in this repository is therefore measured at a
-threshold calibrated so that each detector spends the **same false-alarm budget** on the same
-benign set, written `thr@FPR=1%` or `thr@FPR=5%`.
+**Why we never compare at 0.5.** Raw scores are not comparable across models. deepset's entire
+useful decision range lies between 0.99845 and 0.99899, a span of about 5e-4, while Prompt
+Guard 2 operates around 0.006. Comparing two models at 0.5 compares two arbitrary points on
+incomparable scales. Every number in this repository is therefore measured at a threshold
+calibrated so that each detector spends the **same false-alarm budget** on the same benign
+set, written `thr@FPR=1%` or `thr@FPR=5%`.
 
 **Fertility and the effective window.** Fertility is tokens per character for a given
 tokenizer. The effective window is `512 / fertility`, that is, how many **characters** fit
@@ -126,7 +146,7 @@ All four are used exactly as published. Nothing was trained or fine-tuned.
 | AgentDojo benign user goals | 24 | harmless requests for the 2x2 design |
 | AgentDojo benign full texts | 67 | **calibration set** for all thresholds |
 | IPI Arena | 95 strings / 28 behaviours | attacks that succeeded against a Qwen agent |
-| Serbian corpus | 300 sentences | benign text for the language axis |
+| Serbian corpus | 300 sentences, 150 per condition | benign text for the language axis |
 
 ### 4.3 Calibrated thresholds
 
@@ -175,14 +195,14 @@ Mean P(malicious) per cell:
 | promptguard2_86m | 0.0011 | 0.0675 | 0.0004 | 0.0136 | **0.1220** |
 | promptguard2_22m | 0.0025 | 0.0103 | 0.0012 | 0.0055 | 0.0055 |
 
-Flag rates at each detector's own FPR=1% threshold, Prompt Guard 2 86M:
+Flag rates for Prompt Guard 2 86M, at its own FPR=1% threshold:
 
 | cell | B mal-wrapped | D ben-wrapped | E empty-wrapped |
 |---|---:|---:|---:|
 | flag rate | 0.943 | **0.958** | **1.000** |
 
-At a threshold tuned for 1% false positives, Prompt Guard flags 95.8% of *harmless* user
-goals once they are wrapped, slightly more often than the malicious ones, and flags the empty
+At a threshold tuned for 1% false positives, Prompt Guard flags 95.8% of *harmless* user goals
+once they are wrapped, slightly more often than the malicious ones, and flags the empty
 wrapper every time.
 
 Paired decomposition with cluster-bootstrap intervals (alpha_eff = 0.0125, n_boot = 8000):
@@ -194,11 +214,17 @@ Paired decomposition with cluster-bootstrap intervals (alpha_eff = 0.0125, n_boo
 | promptguard2_86m | +0.013 [+0.010, +0.016] | +0.066 [+0.024, +0.146] | +0.053 [+0.011, +0.129] |
 | promptguard2_22m | +0.004 [+0.004, +0.005] | +0.008 [+0.006, +0.010] | +0.003 [+0.002, +0.005] |
 
-![T1 envelope effect](results/figures/fig1_t1_wrapper.png)
+![T1 wrapper effect](results/figures/fig1_t1_wrapper.png)
 
 ### 5.3 Reading
 
-The strongly negative interaction on deepset and protectai is a **ceiling effect**: malicious-raw already sits at **0.97** to **0.99**, so the wrapper cannot push it much higher. We do not present `I < 0` as evidence that the wrapper matters less for malicious text. Prompt Guard has headroom and its interaction is positive. Track T4 confirms the same conclusion from an independent direction: the same 35 attack goals score **TPR 0.94** wrapped and **0.03** raw. Two tracks, two metrics, one conclusion.
+The strongly negative interaction on deepset and protectai is a **ceiling effect**:
+malicious-raw already sits at 0.97 to 0.99, so the wrapper cannot push it much higher. We do
+not present `I < 0` as evidence that the wrapper matters less for malicious text. Prompt Guard
+has headroom and its interaction is positive.
+
+Track T4 confirms the same conclusion from an independent direction: the same 35 attack goals
+score TPR 0.94 wrapped and 0.03 raw. Two tracks, two metrics, one conclusion.
 
 ---
 
@@ -228,7 +254,12 @@ of threshold transfer, not of raw accuracy.
 
 ![T2 language and script](results/figures/fig3_t2_language_script.png)
 
-To put these numbers in perspective: at a threshold calibrated for a 5% false-positive rate on English, deepset incorrectly **blocks 70.7% of benign Serbian text in Latin** script, jumping to **100% in Cyrillic**. This shows that language is the primary driver, while script accounts for the remaining 29 percentage points. We aren't claiming "Cyrillic is universally broken" - since Prompt Guard shows zero script-dependent bias, this vulnerability is specific to certain model architectures rather than a general rule.
+At a threshold calibrated for 5% false positives on English, deepset blocks **70.7% of benign
+Serbian in Latin script** and **100% in Cyrillic**. Language is the dominant term; script adds
+the final 29 points. The effect is not architectural: deepset and protectai_v2 are both
+`deberta-v3-base` and differ by two orders of magnitude here, and Prompt Guard 2 shows no
+script effect at all. What differs is training data, not model class. None of this is
+inferable from a model card. It only shows up by measuring in the target language.
 
 ### 6.3 The mixing axis moves in two opposite directions
 
@@ -244,7 +275,11 @@ FPR on benign text at thr(FPR=5% on English):
 | deepset | sr_latn | 0.707 | 0.853 | 0.920 |
 
 The same perturbation is an **evasion** on deepset-Cyrillic, where the score falls below the
-threshold, and a **denial of service** on protectai, where benign text becomes blocked. A perturbation that moves the decision in opposite directions on two models is unlikely to be carrying semantic information. The most plausible explanation is tokenization noise: the substitution changes the subword sequence, and each model's decision boundary responds differently to that shift.
+threshold, and a **denial of service** on protectai, where benign text becomes blocked. A
+perturbation that moves the decision in opposite directions on two models is unlikely to be
+carrying semantic information. The most plausible explanation is tokenization noise: the
+substitution changes the subword sequence, and each model's decision boundary responds
+differently to that shift.
 
 ### 6.4 The denial-of-service budget
 
@@ -261,10 +296,10 @@ substitutions** that pushes it above the detector's FPR=1% threshold.
 | protectai_v2 | sr_cyrl, Cyrillic to Latin | 150 | 0% | not solvable | not solvable |
 
 This is the availability side of the story and it partially rescues the original hypothesis.
-The 3-character budget fails **on average**, but for roughly four in ten benign English
-emails there exists a budget of about 20 characters, and for some a single character, that
-flips the detector into "attack". An attacker who wants to make an inbox filter unusable does
-not need to evade it. They need to trip it on the victim's own mail.
+The 3-character budget fails **on average**, but for roughly four in ten benign English emails
+there exists a budget of about 20 characters, and for some a single character, that flips the
+detector into "attack". An attacker who wants to make an inbox filter unusable does not need
+to evade it. They need to trip it on the victim's own mail.
 
 ---
 
@@ -334,17 +369,17 @@ Two distinct failure modes, and the sliding window swaps one for the other.
   windows gives 26 chances to fire, and FPR climbs to 0.150.
 
 The correct statement is therefore that the sliding window trades a distribution-shift error
-for a multiple-comparisons error, and which one dominates is a property of the detector
-rather than of the technique. We do not claim that the window costs FPR: that is true for
-exactly one of the three detectors here.
+for a multiple-comparisons error, and which one dominates is a property of the detector rather
+than of the technique. We do not claim that the window costs FPR: that is true for exactly one
+of the three detectors here.
 
 ### 7.4 A trap in our own summary table
 
 `results/tables/t3_summary.csv` reports `tpr_naive_off8000 = 1.00` for Prompt Guard. That is
 not detection. At that document length the detector fires on 65% of clean carriers, and the
 payload is past the truncation boundary and contributes nothing. Any TPR measured at a
-document length where FPR is 0.65 is uninterpretable. This is exactly why section 9
-re-measures with matched document lengths.
+document length where FPR is 0.65 is uninterpretable. This is exactly why section 9 re-measures
+with matched document lengths.
 
 ### 7.5 protectai_v2 has no usable operating point at FPR=1%
 
@@ -395,15 +430,15 @@ TPR by attack length on IPI Arena:
 | promptguard2_86m naive | 0.231 | 0.760 | **1.000** | **1.000** |
 | protectai_v2 naive | 0.231 | 0.000 | 0.000 | 0.000 |
 
-The two detectors depend on length in opposite directions. deepset loses long attacks, which
-is consistent with truncation, and chunking partially recovers them. Prompt Guard's TPR rises
-to 1.00 on long attacks, but section 7.3 shows it also fires on 65% of clean documents of
-that length, so a large part of that apparent detection is the same length bias. Both numbers
-have to be presented together or the claim is misleading.
+The two detectors depend on length in opposite directions. deepset loses long attacks, which is
+consistent with truncation, and chunking partially recovers them. Prompt Guard's TPR rises to
+1.00 on long attacks, but section 7.3 shows it also fires on 65% of clean documents of that
+length, so a large part of that apparent detection is the same length bias. Both numbers have
+to be presented together or the claim is misleading.
 
-**Selection bias.** IPI Arena strings were collected because they succeeded against one
-agent. That is selection on the outcome. The defensible claim is "generalization drops on the
-IPI Arena distribution", not "detectors fail on real attacks".
+**Selection bias.** IPI Arena strings were collected because they succeeded against one agent.
+That is selection on the outcome. The defensible claim is "generalization drops on the IPI
+Arena distribution", not "detectors fail on real attacks".
 
 ---
 
@@ -416,10 +451,10 @@ one procedure and measures what it recovers and what it does not.
 
 Both sides of the comparison have the **same document length**. Each IPI Arena attack is
 embedded into a 16000-character benign carrier, exactly like the clean carriers used as the
-negative set, so that both sides produce the same number of windows. Every rule gets its
-**own threshold**, calibrated on one half of the carriers to the same 5% false-alarm budget
-and measured on the held-out half. Without per-rule calibration a stricter rule would appear
-to win on FPR simply because it fires less often.
+negative set, so that both sides produce the same number of windows. Every rule gets its **own
+threshold**, calibrated on one half of the carriers to the same 5% false-alarm budget and
+measured on the held-out half. Without per-rule calibration a stricter rule would appear to win
+on FPR simply because it fires less often.
 
 Rules compared: one pass over the whole document; sliding window with `size=1200, stride=600`
 and max aggregation; the same with corrected head coverage, that is one extra window
@@ -437,42 +472,54 @@ With the payload past the boundary, a single pass catches 5%, which is the false
 meaning it is catching nothing. The sliding window catches 98%. With the payload at the top,
 where one pass can already read it, the window adds nothing.
 
-That control is what makes the claim defensible. The gain is not chunking as a technique. It
-is exactly the region a single pass cannot read.
+That control is what makes the claim defensible. The gain is not chunking as a technique. It is
+exactly the region a single pass cannot read.
 
-deepset recovers far less, from 0.042 to 0.179 at the same operating point, because the
-window restores **visibility** but cannot fix a model whose entire decision range is 5e-4
-wide. Separability and visibility are different problems.
+deepset recovers far less, from 0.042 to 0.179 at the same operating point, because the window
+restores **visibility** but cannot fix a model whose entire decision range is 5e-4 wide.
+Separability and visibility are different problems.
 
 ### 9.3 What the policy does not fix
 
-- **Language.** No aggregation rule touches the 70.7% false-alarm rate on benign Serbian. Windows chop text; they do not recalibrate a threshold.
-
-- **Format.** An empty wrapper still scores 0.9989. Chunking changes how much text the model sees; it does not remove the format effect.
-
-- **Cost.** At our 1200/600 setting, a 16,000-character document requires about 27 inference calls instead of one.
-
-- **Scope.** We measure the guard classifier. We never test whether an agent would have executed the instruction, so every detection number here is a ceiling on protection rather than evidence of prevention.
+- **Language.** No aggregation rule touches the 70.7% false-alarm rate on benign Serbian.
+  Windows chop text; they do not recalibrate a threshold.
+- **Format.** An empty wrapper still scores 0.9989. Chunking changes how much text the model
+  sees; it does not remove the format effect.
+- **Cost.** At the 1200/600 setting, a 16000-character document requires about 27 inference
+  calls instead of one.
+- **Scope.** We measure the guard classifier. We never test whether an agent would have
+  executed the instruction, so every detection number here is a ceiling on protection rather
+  than evidence of prevention.
 
 ### 9.4 A caveat we state ourselves
 
 Under held-out calibration the realized FPR is no longer pinned at exactly 5%: on the 20
-held-out carriers the one-pass rule ran at 0.00 and the window at 0.10. The window is
-therefore paying something, although the effect size, 0.05 to 0.98, is far outside that
-difference. The `count>=2` rule reached 0.20 FPR on the held-out half and is therefore not
-comparable at all, so we exclude it from the headline claim.
+held-out carriers the one-pass rule ran at 0.00 and the window at 0.10. The window is therefore
+paying something, although the effect size, 0.05 to 0.98, is far outside that difference. The
+`count>=2` rule reached 0.20 FPR on the held-out half and is therefore not comparable at all,
+so we exclude it from the headline claim.
 
 ---
 
 ## 10. Discussion
 
-**What holds without an agent.** The false-positive results need no further assumption. A filter that blocks 70.7% of harmless Serbian has already caused the harm: the legitimate message can be blocked or rejected. The same applies to 65% on clean long documents. These are end outcomes, not proxies for one.
+**What holds without an agent.** The false-positive results need no further assumption. A
+filter that blocks 70.7% of harmless Serbian has already caused the harm: the legitimate
+message is blocked or rejected. The same applies to 65% on clean long documents. These are end
+outcomes, not proxies for one.
 
-**What does not.** A filter that misses an attack is not an agent that obeyed it. Every detection number in this repository bounds how much protection a guard can provide; none of them establishes that a compromise occurred or was prevented. The 0.05 to 0.98 result should be read as a blind spot closing, not as attacks stopped.
+**What does not.** A filter that misses an attack is not an agent that obeyed it. Every
+detection number in this repository bounds how much protection a guard can provide; none of
+them establishes that a compromise occurred or was prevented. The 0.05 to 0.98 result should be
+read as a blind spot closing, not as attacks stopped.
 
-**On the negative result.** The homoglyph hypothesis failed in the form we proposed it. Asking why produced two things a successful evasion would not have: a boundary we could predict from the tokenizer before measuring it, and a class of failures that lands on ordinary users rather than on attackers.
+**On the negative result.** The homoglyph hypothesis failed in the form we proposed it. Asking
+why produced two things a successful evasion would not have: a boundary we could predict from
+the tokenizer before measuring it, and a class of failures that lands on ordinary users rather
+than on attackers.
 
-O**n the arms race.** Guards are trained on attacks that already exist, so defenses answer last year's question by construction. Ours is no exception, which is where section 12 begins.
+**On the arms race.** Guards are trained on attacks that already exist, so defenses answer last
+year's question by construction. Ours is no exception, which is where section 12 begins.
 
 ---
 
@@ -497,9 +544,9 @@ O**n the arms race.** Guards are trained on attacks that already exist, so defen
 ## 12. Future work
 
 **The attacker's next move: split payload.** Our own window only helps while the entire
-instruction fits inside one window. Splitting it across two window boundaries makes each
-window read as harmless while the assembled document still reads as an order to the agent.
-Our fix creates this attack, and it is testable immediately with the existing code.
+instruction fits inside one window. Splitting it across two window boundaries makes each window
+read as harmless while the assembled document still reads as an order to the agent. Our fix
+creates this attack, and it is testable immediately with the existing code.
 
 **A blind-spot atlas.** The truncation boundary falls out of the tokenizer alone: no attack
 data, no GPU, no model call. One table of detector x language would tell a practitioner where
@@ -528,8 +575,9 @@ conda activate psiml
 export PYTHONPATH=src            # Windows: set PYTHONPATH=src
 ```
 
-All detector scores are cached on disk by SHA1 of the input string, so re-running an analysis
-is free after the first pass. The cache lives in `.cache/scores/` and is not committed.
+Detector scores are cached on disk by SHA1 of the input string, so re-running an analysis is
+free after the first pass. The cache lives in `.cache/scores/` and is not committed; the
+per-sample scores needed to reproduce every table are in `results/raw/`.
 
 ### 13.2 Full pipeline
 
@@ -609,7 +657,7 @@ Every number in this README is traceable to a CSV in `results/tables/`.
 
 - Debenedetti et al., *AgentDojo: A Dynamic Environment to Evaluate Attacks and Defenses for
   LLM Agents*, 2024.
-- IPI Arena, *Real-world indirect prompt injection attacks against LLM agents*,
+- Dziemian et al., *How Vulnerable Are AI Agents to Indirect Prompt Injections? Insights from a Large-Scale Public Competition*,
   arXiv:2603.15714.
 - Meta, *Llama Prompt Guard 2* model cards, 86M and 22M.
 - ProtectAI, *deberta-v3-base-prompt-injection-v2* model card.
