@@ -6,8 +6,14 @@ drive their decisions far more than the content of the text does: the **format**
 around it, the **language** it is written in, and the **position** of the payload inside a
 long document.
 
-PSIML 11 (Practical Seminar in Machine Learning), summer 2026.
-Authors: Stefan Brankovic, Katarina Bojovic. Mentors: Kristina Nikolic, Stefan Mojsilovic.
+PSIML 11 (Practical Seminar in Machine Learning), August 2026.
+**Authors**: 
+- Stefan Branković [https://github.com/stefbrankovic]
+- Katarina Bojović [https://github.com/katarinnaaX]. 
+
+**Mentors**: 
+- Kristina Nikolić (ETH AI SPY Lab)
+- Stefan Mojsilović (Everseen).
 
 ---
 
