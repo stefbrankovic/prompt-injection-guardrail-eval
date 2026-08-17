@@ -49,4 +49,4 @@ repomix-output-*.xml
 *.patch
 results/figures/smoke/
 __pycache__/
-.ipynb_checkpoints/
+.ipynb_checkpoints/.cache/

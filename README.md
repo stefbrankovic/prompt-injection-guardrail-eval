@@ -7,13 +7,14 @@ around it, the **language** it is written in, and the **position** of the payloa
 long document.
 
 PSIML 11 (Practical Seminar in Machine Learning), August 2026.
-**Authors**: 
-- Stefan Branković [https://github.com/stefbrankovic]
-- Katarina Bojović [https://github.com/katarinnaaX]. 
 
-**Mentors**: 
-- Kristina Nikolić (ETH AI SPY Lab)
-- Stefan Mojsilović (Everseen).
+Authors: 
+- **Stefan Branković** [https://github.com/stefbrankovic]
+- **Katarina Bojović** [https://github.com/katarinnaaX]. 
+
+Mentors: 
+- **Kristina Nikolić** (ETH AI SPY Lab)
+- **Stefan Mojsilović** (Everseen).
 
 ---
 
@@ -42,7 +43,7 @@ PSIML 11 (Practical Seminar in Machine Learning), August 2026.
 | # | Finding | Evidence |
 |---|---|---|
 | 1 | A wrapper template containing **no instruction at all** scores like a real attack | 0.9989 on deepset, 0.9955 on ProtectAI v2 |
-| 2 | In this setup, the wrapper dominates the detector score for some models | Same 35 attack goals: TPR 0.94 wrapped, 0.03 raw |
+| 2 | The wrapper drives the score more than the goal inside it | Same 35 attack goals: TPR 0.94 wrapped, 0.03 raw |
 | 3 | Thresholds do not transfer across language | 70.7% of benign Serbian in Latin script and 100% in Cyrillic blocked at a threshold costing 5% FPR on English (deepset) |
 | 4 | The 512-token truncation boundary is predictable from the tokenizer and confirmed behaviourally | Predicted 1982 chars (Prompt Guard 2) and 2226 chars (deepset); measured score is identical to six decimals past that offset |
 | 5 | The same blind spot is twice as close to the top in Serbian Cyrillic | 512 tokens hold 1025 Cyrillic chars vs 2226 English chars |
@@ -74,7 +75,7 @@ hold turned out to be more informative than a successful evasion would have been
 ## 3. Background and definitions
 
 **Token and context window.** Models read tokens, not characters, roughly 3 to 4 characters
-of English per token. Every model has a maximum input length. All four detectors were evaluated with a **512-token maximum input** length. For models with a 512-token architecture limit, longer inputs were truncated at inference; this behavior was verified from the tokenizer/model configuration and reproduced in our scoring wrapper.
+of English per token. Every model has a maximum input length. All four detectors were evaluated with a **512-token maximum input length**. Longer inputs are truncated at inference: no error is raised, and the returned score corresponds only to the retained prefix. We verified this behavior from the tokenizer/model configuration and reproduced it in our scoring wrapper.
 
 **Threshold, TPR, FPR.** A text is flagged when `score >= thr`. FPR is the fraction of
 **benign** texts flagged, which is the cost to users. TPR is the fraction of **attacks**
@@ -243,9 +244,7 @@ FPR on benign text at thr(FPR=5% on English):
 | deepset | sr_latn | 0.707 | 0.853 | 0.920 |
 
 The same perturbation is an **evasion** on deepset-Cyrillic, where the score falls below the
-threshold, and a **denial of service** on protectai, where benign text becomes blocked. A
-perturbation that moves the decision in opposite directions on two models is not carrying
-semantics. The most plausible explanation is tokenization noise interacting differently with each model's decision boundary.
+threshold, and a **denial of service** on protectai, where benign text becomes blocked. A perturbation that moves the decision in opposite directions on two models is unlikely to be carrying semantic information. The most plausible explanation is tokenization noise: the substitution changes the subword sequence, and each model's decision boundary responds differently to that shift.
 
 ### 6.4 The denial-of-service budget
 
@@ -447,9 +446,13 @@ wide. Separability and visibility are different problems.
 
 ### 9.3 What the policy does not fix
 
-- **What windowing leaves broken:** Chunking doesn't fix language bias (harmless Serbian text still triggers massive false positives) or format bias (an empty wrapper still scores 0.9989 because chopping text doesn't change what the model focuses on).
+- **Language.** No aggregation rule touches the 70.7% false-alarm rate on benign Serbian. Windows chop text; they do not recalibrate a threshold.
 
-- **Performance and evaluation overhead:** Processing a 16,000-character document requires roughly 27 separate inference calls instead of one. Furthermore, our evaluation strictly measures the guard classifier—we never test whether an actual agent would have executed the instruction.
+- **Format.** An empty wrapper still scores 0.9989. Chunking changes how much text the model sees; it does not remove the format effect.
+
+- **Cost.** At our 1200/600 setting, a 16,000-character document requires about 27 inference calls instead of one.
+
+- **Scope.** We measure the guard classifier. We never test whether an agent would have executed the instruction, so every detection number here is a ceiling on protection rather than evidence of prevention.
 
 ### 9.4 A caveat we state ourselves
 
@@ -463,13 +466,13 @@ comparable at all, so we exclude it from the headline claim.
 
 ## 10. Discussion
 
-**What our findings actually mean for users.** The false-positive results stand on their own merits. A filter blocking 70.7% of harmless Serbian text is the failure mode: a user's legitimate mail gets dropped, and you don't need an agentic exploit loop for that to matter. The same applies to the 65% false-positive rate on clean long documents. These are concrete behavioral outcomes, not abstract proxies.
+**What holds without an agent.** The false-positive results need no further assumption. A filter that blocks 70.7% of harmless Serbian has already caused the harm: the legitimate message can be blocked or rejected. The same applies to 65% on clean long documents. These are end outcomes, not proxies for one.
 
-**Where we draw the line.** A filter missing an attack does not prove an agent would have succumbed to it. All of our detection numbers represent upper bounds on filter performance, not proof that a system compromise happened. When we show performance jumping from 0.05 to 0.98, it means the filter's architectural blind spot is covered—it does not guarantee we prevented a successful exploit in the wild.
+**What does not.** A filter that misses an attack is not an agent that obeyed it. Every detection number in this repository bounds how much protection a guard can provide; none of them establishes that a compromise occurred or was prevented. The 0.05 to 0.98 result should be read as a blind spot closing, not as attacks stopped.
 
-**Reflections on a negative result.** Our initial homoglyph evasion hypothesis failed, and we documented it explicitly. But chasing why it failed gave us far more valuable insights than a routine evasion script would have: a predictable tokenizer bottleneck and failure modes that disproportionately target benign users.
+**On the negative result.** The homoglyph hypothesis failed in the form we proposed it. Asking why produced two things a successful evasion would not have: a boundary we could predict from the tokenizer before measuring it, and a class of failures that lands on ordinary users rather than on attackers.
 
-**The broader arms race.** Because security filters are trained reactively on historical attacks, defenses are always lagging behind. Our proposed mitigation strategy shares this exact structural limitation, which motivates the work outlined in section 12.
+O**n the arms race.** Guards are trained on attacks that already exist, so defenses answer last year's question by construction. Ours is no exception, which is where section 12 begins.
 
 ---
 
