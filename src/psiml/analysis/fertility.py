@@ -205,7 +205,7 @@ def main() -> int:
     dest = args.run / "fertility.json"
     dest.write_text(json.dumps(res, indent=2, ensure_ascii=False), encoding="utf-8")
     print(f"\nZapisano: {dest}")
-    print("Figura: python -m psiml.viz.make_figures --run", args.run)
+    print("Figures: python scripts/f2_figs.py")
     return 0
 
 

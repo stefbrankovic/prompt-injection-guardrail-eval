@@ -1,64 +1,51 @@
-# Precice za ceste komande. `make` bez argumenta prikazuje pomoc.
-.PHONY: help setup test demo access baseline attack figures clean sync
+.PHONY: help data tracks defense analyze figures test clean
+
+PY := python
+export PYTHONPATH := src
+
+DETS_ALL := deepset protectai_v2 promptguard2_86m promptguard2_22m
+DETS_3   := deepset promptguard2_86m protectai_v2
+DETS_2   := deepset promptguard2_86m
 
 help:
-	@echo "make setup     - conda env + install + testovi + provera pristupa"
-	@echo "make access    - proveri HF pristup (gated modeli!)"
-	@echo "make test      - pytest"
-	@echo "make demo      - demo napada (bez modela, radi odmah)"
-	@echo "make sanity    - ISPRAVAN test detektora (sa kontrolnom grupom!)"
-	@echo "make baseline  - D1: detektori na engleskom"
-	@echo "make attack    - D2: CyrEvade po jeziku/pismu"
-	@echo "make figures   - regenerisi sve figure iz results/raw"
-	@echo "make sync      - merge tekuce grane u main (posle testova)"
-	@echo "make clean     - obrisi cache"
+	@echo "make data      - prepare datasets"
+	@echo "make tracks    - run T1-T4 (the only steps that call the models)"
+	@echo "make defense   - corrected detection policy + position control"
+	@echo "make analyze   - corrected analysis, no model calls"
+	@echo "make figures   - regenerate all figures"
+	@echo "make test      - unit tests"
+	@echo "make all       - everything, in order"
 
-setup:
-	bash scripts/setup.sh
+data:
+	$(PY) scripts/f2_data.py agentdojo-benign
+	$(PY) scripts/f2_data.py benign-goals
+	$(PY) scripts/f2_data.py sr-corpus --n 300
 
-access:
-	python scripts/check_access.py
+tracks:
+	$(PY) scripts/f2_t1_envelope.py --detectors $(DETS_ALL)
+	$(PY) scripts/f2_t2_script.py   --detectors $(DETS_3) --limit 150
+	$(PY) scripts/f2_t3_window.py   --detectors $(DETS_3) --n-carriers 40
+	$(PY) scripts/f2_t4_external.py --detectors $(DETS_3)
+
+defense:
+	$(PY) scripts/f2_defense.py --detectors $(DETS_2) --embed 4000 --holdout
+	$(PY) scripts/f2_defense.py --detectors $(DETS_2) --embed 0    --holdout
+
+analyze:
+	$(PY) scripts/f2_analyze.py t1
+	$(PY) scripts/f2_analyze.py t2
+	$(PY) scripts/f2_analyze.py t3
+	$(PY) scripts/f2_analyze.py t4
+
+figures:
+	$(PY) scripts/f2_figs.py
+	$(PY) scripts/f2_fig9.py
 
 test:
 	pytest -q
 
-demo:
-	python -m psiml.cli.demo_attack
-
-# Test detektora sa kontrolnom grupom bezopasnih tekstova.
-# BEZ ovoga TPR ne znaci nista. Vidi docs/TEORIJA.md, Deo 5.
-sanity:
-	python scripts/detector_sanity.py --mock
-	@echo ""
-	@echo "Gore je MOCK. Za prave detektore:"
-	@echo "  python scripts/detector_sanity.py -d protectai_v2"
-	@echo "  python scripts/detector_sanity.py -d promptguard2_86m"
-
-baseline:
-	python -m psiml.cli.run --config configs/experiments/baseline_en.yaml
-
-attack:
-	python -m psiml.cli.run --config configs/experiments/cyrevade.yaml
-
-figures:
-	python -m psiml.viz.make_figures
-
-# Merge tekuce grane u main tek ako testovi prolaze.
-sync:
-	@pytest -q && \
-	BRANCH=$$(git rev-parse --abbrev-ref HEAD) && \
-	if [ "$$BRANCH" = "main" ]; then echo "Vec si na main."; exit 0; fi && \
-	git checkout main && git pull && \
-	git merge --no-ff $$BRANCH && git push && \
-	echo "Merged $$BRANCH -> main"
+all: data tracks defense analyze figures
 
 clean:
-	find . -name __pycache__ -type d -exec rm -rf {} + 2>/dev/null || true
-	rm -rf .pytest_cache .ruff_cache
-
-srlatn:
-	python scripts/make_sr_latn.py
-
-fertility:
-	python -m psiml.analysis.fertility --run results/raw/cyrevade
-	python -m psiml.viz.make_figures --run results/raw/cyrevade
+	rm -rf __pycache__ .pytest_cache
+	find . -name "*.pyc" -delete
