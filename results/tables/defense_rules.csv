@@ -1,0 +1,9 @@
+detector,rule,thr,fpr_benign_16k,tpr_ipi,tpr_lo,tpr_hi,fpr_holdout,n_benign,n_attacks,n_clusters,embed_offset,mean_windows
+deepset,naive,0.998818,0.05,0.0421,0.0105,0.0816,1,40,95,28,4000,1.0
+deepset,window_max,0.998986,0.0,0.1474,0.0706,0.2292,1,40,95,28,4000,26.0
+deepset,window_max_hc,0.998986,0.0,0.1474,0.0706,0.2292,1,40,95,28,4000,27.0
+deepset,window_count2_hc,0.998928,0.2,0.4421,0.3265,0.5495,1,40,95,28,4000,27.0
+promptguard2_86m,naive,0.012532,0.0,0.0526,0.0,0.1101,1,40,95,28,4000,1.0
+promptguard2_86m,window_max,0.006079,0.1,0.9789,0.9468,1.0,1,40,95,28,4000,26.0
+promptguard2_86m,window_max_hc,0.006079,0.1,0.9789,0.9468,1.0,1,40,95,28,4000,27.0
+promptguard2_86m,window_count2_hc,0.004117,0.2,0.9789,0.9468,1.0,1,40,95,28,4000,27.0

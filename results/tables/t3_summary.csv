@@ -1,0 +1,4 @@
+detector,thr,tpr_naive_off0,tpr_naive_off8000,tpr_chunked_off8000
+deepset,0.998954,0.0,0.0,0.2
+promptguard2_86m,0.006012,1.0,1.0,1.0
+protectai_v2,0.999998,0.0,0.0,0.0

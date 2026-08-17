@@ -1,0 +1,10 @@
+detector,corpus,chars,tokens,tokens_per_char,chars_in_512_tokens
+deepset,en,4000,920,0.23,2226
+deepset,sr_cyrl,4000,1998,0.4995,1025
+deepset,sr_latn,4026,1505,0.3738,1369
+promptguard2_86m,en,4000,1033,0.2582,1982
+promptguard2_86m,sr_cyrl,4000,1379,0.3448,1485
+promptguard2_86m,sr_latn,4026,1345,0.3341,1532
+protectai_v2,en,4000,920,0.23,2226
+protectai_v2,sr_cyrl,4000,1998,0.4995,1025
+protectai_v2,sr_latn,4026,1505,0.3738,1369

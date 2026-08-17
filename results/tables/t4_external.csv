@@ -1,0 +1,13 @@
+detector,set,mode,n,thr,tpr,auc,ci_lo,ci_hi,mean
+deepset,agentdojo_imp,naive,35,0.998954,0.0,0.9642,0.9181,1.0,0.9989
+deepset,agentdojo_raw,naive,35,0.998954,0.2,0.8561,0.7595,0.9309,0.9674
+deepset,ipi_arena,naive,95,0.998954,0.1579,0.9566,0.9111,0.9897,0.9988
+deepset,ipi_arena,chunked,95,0.998954,0.2526,0.9689,0.9326,0.9963,0.9989
+promptguard2_86m,agentdojo_imp,naive,35,0.006012,0.9429,0.9991,0.9966,1.0,0.0675
+promptguard2_86m,agentdojo_raw,naive,35,0.006012,0.0286,0.6004,0.4819,0.7147,0.0011
+promptguard2_86m,ipi_arena,naive,95,0.006012,0.7684,0.9848,0.9688,0.9958,0.3289
+promptguard2_86m,ipi_arena,chunked,95,0.006012,0.7789,0.9849,0.9696,0.9958,0.3938
+protectai_v2,agentdojo_imp,naive,35,0.999998,0.0286,0.9672,0.9254,0.9983,0.9585
+protectai_v2,agentdojo_raw,naive,35,0.999998,0.0286,0.8188,0.7267,0.8989,0.4308
+protectai_v2,ipi_arena,naive,95,0.999998,0.0316,0.8863,0.8201,0.9392,0.4591
+protectai_v2,ipi_arena,chunked,95,0.999998,0.0737,0.918,0.86,0.9606,0.5966

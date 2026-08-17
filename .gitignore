@@ -42,3 +42,11 @@ Thumbs.db
 
 # --- node js - repomix
 repomix-output.*
+
+# cache + figures
+.cache/
+repomix-output-*.xml
+*.patch
+results/figures/smoke/
+__pycache__/
+.ipynb_checkpoints/

@@ -1,0 +1,13 @@
+detector,bucket_chars,n,tpr_naive,tpr_chunked
+deepset,0-500,13,0.538,0.538
+deepset,500-1500,50,0.16,0.2
+deepset,1500-4000,22,0,0.273
+deepset,4000-inf,10,0,0.1
+promptguard2_86m,0-500,13,0.231,0.231
+promptguard2_86m,500-1500,50,0.76,0.78
+promptguard2_86m,1500-4000,22,1,1
+promptguard2_86m,4000-inf,10,1,1
+protectai_v2,0-500,13,0.231,0.231
+protectai_v2,500-1500,50,0,0
+protectai_v2,1500-4000,22,0,0.091
+protectai_v2,4000-inf,10,0,0.2
